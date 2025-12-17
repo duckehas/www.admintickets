@@ -1,0 +1,141 @@
+<!-- =====================
+ ADMIN PAGE FOR DISCORD TICKET SYSTEM WITH CLOSE, HOVER EFFECTS & SECURITY
+===================== -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel - Discord Tickets</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:'Segoe UI',system-ui;background:#020617;overflow:hidden;color:white}
+canvas{position:fixed;inset:0;z-index:0}
+.wrap{position:relative;z-index:1;padding:30px;max-width:1200px;margin:auto;overflow-y:auto;max-height:100vh}
+.card{background:linear-gradient(135deg,rgba(148,163,184,.22),rgba(148,163,184,.12));backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.25);border-radius:26px;padding:24px;margin-bottom:20px;box-shadow:0 20px 40px rgba(0,0,0,.5)}
+.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.ticket-body{background:rgba(0,0,0,.2);border-radius:18px;padding:12px;max-height:300px;overflow:auto}
+.msg{margin-bottom:8px;font-size:.9rem}
+.userBubble{background:linear-gradient(135deg,#38bdf8,#818cf8);color:#020617;padding:8px 12px;border-radius:12px;display:inline-block;margin-left:auto;margin-bottom:6px}
+.adminBubble{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:8px 12px;border-radius:12px;display:inline-block;margin-bottom:6px}
+input,button{padding:8px 12px;border-radius:999px;border:none;outline:none}
+button{cursor:pointer;background:linear-gradient(135deg,#a855f7,#6366f1);color:#020617;margin-left:6px;transition:transform .2s, box-shadow .2s;}
+button:hover{transform:scale(1.05);box-shadow:0 0 20px rgba(168,85,247,.7);}
+.controls{display:flex;gap:6px;margin-top:6px}
+img.chatImage{max-width:150px;border-radius:12px;display:block;margin-top:4px}
+</style>
+</head>
+<body>
+<canvas id="snow"></canvas>
+<div class="wrap">
+<h1>Admin Panel - Discord Tickets</h1>
+<div id="tickets"></div>
+</div>
+
+<script>
+function loadTickets(){
+  const container=document.getElementById('tickets');
+  container.innerHTML='';
+  Object.keys(localStorage).filter(k=>k.startsWith('ticket_')).forEach(key=>{
+    const t=JSON.parse(localStorage[key]);
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=`
+      <div class='ticket-header'>
+        <div><b>${t.id}</b> - ${t.discord} (#${t.discordId})</div>
+        <div>${t.closed?'Closed':'Open'}</div>
+      </div>
+      <div class='ticket-body' id='body-${t.id}'></div>
+    `;
+    const bodyDiv=card.querySelector('#body-'+t.id);
+    t.messages.forEach(m=>{
+      const msg=document.createElement('div');
+      msg.className=m.from===t.discord?'userBubble adminBubble':'adminBubble';
+      let content=`<b>${m.from}:</b> ${m.text||''}`;
+      if(m.img) content+=`<br><img src='${m.img}' class='chatImage'>`;
+      content+=`<br><small>${m.time}</small>`;
+      msg.innerHTML=content;
+      bodyDiv.appendChild(msg);
+    });
+
+    const controlsDiv=document.createElement('div');
+    controlsDiv.className='controls';
+
+    if(!t.closed){
+      const replyBtn=document.createElement('button');
+      replyBtn.innerText='Respond';
+      replyBtn.onclick=()=>{
+        const input=document.createElement('input');
+        input.placeholder='Reply...';
+        const sendBtn=document.createElement('button');
+        sendBtn.innerText='Send';
+        sendBtn.onclick=()=>{
+          const val=input.value.trim();
+          if(!val) return;
+          t.messages.push({from:'Admin',text:val,time:new Date().toLocaleString()});
+          localStorage[key]=JSON.stringify(t);
+          loadTickets();
+        };
+        const ctrl=document.createElement('div');
+        ctrl.className='controls';
+        ctrl.appendChild(input);
+        ctrl.appendChild(sendBtn);
+        bodyDiv.appendChild(ctrl);
+      };
+      controlsDiv.appendChild(replyBtn);
+
+      const closeBtn=document.createElement('button');
+      closeBtn.innerText='Close Ticket';
+      closeBtn.onclick=()=>{
+        t.closed=true;
+        localStorage[key]=JSON.stringify(t);
+        loadTickets();
+      };
+      controlsDiv.appendChild(closeBtn);
+    } else {
+      const delBtn=document.createElement('button');
+      delBtn.innerText='Delete';
+      delBtn.onclick=()=>{
+        localStorage.removeItem(key);
+        loadTickets();
+      };
+      controlsDiv.appendChild(delBtn);
+    }
+
+    card.appendChild(controlsDiv);
+    container.appendChild(card);
+  });
+}
+loadTickets();
+</script>
+
+<script>
+// Advanced live snow for admin page
+const c=document.getElementById('snow');
+const ctx=c.getContext('2d');
+let w,h,snow=[];
+function resize(){w=c.width=window.innerWidth;h=c.height=window.innerHeight;}
+resize();window.onresize=resize;
+for(let i=0;i<250;i++)snow.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*3+1,d:Math.random()+0.5,dx:(Math.random()-0.5)*0.5});
+function drawSnow(){
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.beginPath();
+  snow.forEach(s=>{ctx.moveTo(s.x,s.y);ctx.arc(s.x,s.y,s.r,0,Math.PI*2);s.y+=s.d*s.d+0.2;s.x+=s.dx;if(s.y>h){s.y=-10;s.x=Math.random()*w;}if(s.x>w)s.x=0;if(s.x<0)s.x=w;});
+  ctx.fill();
+  requestAnimationFrame(drawSnow);
+}
+drawSnow();
+</script>
+
+<script>
+// Security: disable right click, F12, context menu, and back navigation
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if(e.key==='F12' || (e.ctrlKey && (e.key==='u' || e.key==='s' || e.key==='Shift' || e.key==='i'))){ e.preventDefault(); }
+});
+window.history.pushState(null, null, window.location.href);
+window.onpopstate=function(){window.history.go(1);};
+</script>
+
+</body>
+</html>
